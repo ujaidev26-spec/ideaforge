@@ -1,0 +1,953 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SENTINEL | Firecracker Unit Explosion & Risk Engine</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              400: '#fb923c',
+              500: '#f97316',
+              600: '#ea580c',
+              700: '#c2410c'
+            },
+            surface: {
+              DEFAULT: '#121212',
+              card: '#181818',
+              cardHover: '#202020',
+              border: '#282828',
+              lightCard: '#F5F5F3'
+            }
+          },
+          fontFamily: {
+            sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+            mono: ['"JetBrains Mono"', 'monospace']
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body {
+      background-color: #0c0c0c;
+      color: #f3f4f6;
+      overflow-x: hidden;
+    }
+    .hero-glow {
+      position: absolute;
+      width: 480px;
+      height: 480px;
+      background: radial-gradient(circle, rgba(249,115,22,0.22) 0%, rgba(234,88,12,0.05) 50%, transparent 70%);
+      filter: blur(60px);
+      pointer-events: none;
+      z-index: 0;
+    }
+    .neon-border {
+      border: 1px solid rgba(249, 115, 22, 0.25);
+      box-shadow: 0 0 25px rgba(249, 115, 22, 0.08);
+    }
+    .badge-pulse {
+      animation: pulseAlert 1.6s infinite;
+    }
+    @keyframes pulseAlert {
+      0% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.05); opacity: 0.85; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+    .custom-scroll::-webkit-scrollbar {
+      width: 5px;
+    }
+    .custom-scroll::-webkit-scrollbar-track {
+      background: #141414;
+    }
+    .custom-scroll::-webkit-scrollbar-thumb {
+      background: #2a2a2a;
+      border-radius: 4px;
+    }
+    .glass-card {
+      background: rgba(24, 24, 24, 0.85);
+      backdrop-filter: blur(16px);
+      border: 1px solid #282828;
+    }
+    .white-card {
+      background: #FAFAF9;
+      color: #121212;
+      border-radius: 24px;
+      transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .white-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 20px 35px -10px rgba(0,0,0,0.4);
+    }
+  </style>
+</head>
+<body class="font-sans antialiased selection:bg-brand-500 selection:text-white">
+
+  <!-- TOP NOTIFICATION BANNER -->
+  <div id="alarmBanner" class="hidden bg-gradient-to-r from-red-600 via-orange-600 to-red-600 text-white py-2.5 px-4 text-center font-bold text-sm tracking-wide flex items-center justify-center gap-3 badge-pulse sticky top-0 z-50 shadow-xl">
+    <span>⚠️ CRITICAL HAZARD DETECTED: Explosive Shockwave & Thermal Surge in Progress!</span>
+    <button onclick="dismissAlarm()" class="bg-black/40 hover:bg-black/60 px-3 py-0.5 rounded text-xs uppercase tracking-wider transition">Acknowledge</button>
+  </div>
+
+  <!-- NAVIGATION BAR (Exact replica of reference header) -->
+  <nav class="max-w-7xl mx-auto px-6 py-6 flex items-center justify-between relative z-20">
+    <div class="flex items-center gap-3">
+      <!-- Flame Emblem -->
+      <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-brand-500 to-orange-700 flex items-center justify-center shadow-lg shadow-brand-500/30">
+        <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+      </div>
+      <div>
+        <span class="text-white font-extrabold tracking-wider text-lg">NOVACRAFT</span>
+        <span class="text-brand-500 text-xs font-bold tracking-widest block -mt-1">SENTINEL • RISK OS</span>
+      </div>
+    </div>
+
+    <div class="hidden md:flex items-center gap-8 text-sm font-medium text-gray-400">
+      <a href="#hero" class="hover:text-white transition">Overview</a>
+      <a href="#live-sensors" class="hover:text-white transition">Sensors (30)</a>
+      <a href="#risk-engine" class="hover:text-white transition">Risk Engine</a>
+      <a href="#zones" class="hover:text-white transition">Plant Zones</a>
+      <a href="#alerts" class="hover:text-white transition">Live Alerts</a>
+    </div>
+
+    <div class="flex items-center gap-3">
+      <div class="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-surface-card border border-surface-border text-xs text-gray-300">
+        <span class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+        <span id="simulatorStatus">Sim Engine: Live (1s)</span>
+      </div>
+      <button onclick="triggerExplosionModal()" class="bg-brand-500 hover:bg-brand-600 text-white font-semibold px-5 py-2.5 rounded-full text-sm flex items-center gap-2 transition-all shadow-lg shadow-brand-500/25 hover:scale-105">
+        <span>Simulate Explosion</span>
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+      </button>
+    </div>
+  </nav>
+
+  <!-- HERO SECTION (Matching dark aesthetic with glowing ring graphic) -->
+  <section id="hero" class="relative max-w-7xl mx-auto px-6 pt-10 pb-20">
+    <div class="hero-glow top-0 right-10"></div>
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center relative z-10">
+      
+      <!-- Left Content -->
+      <div class="lg:col-span-7 space-y-6">
+        <div class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-brand-500/10 border border-brand-500/20 text-brand-400 text-xs font-semibold uppercase tracking-wider">
+          <span class="w-1.5 h-1.5 rounded-full bg-brand-500"></span>
+          Industrial Pyrotechnic Safety & Telemetry
+        </div>
+        
+        <h1 class="text-4xl sm:text-6xl font-extrabold text-white tracking-tight leading-[1.12]">
+          We Prevent <br>
+          <span class="text-white">Explosions</span> That <br>
+          <span class="text-transparent bg-clip-text bg-gradient-to-r from-brand-400 via-brand-500 to-orange-400">Threaten Lives.</span>
+        </h1>
+
+        <p class="text-gray-400 text-base sm:text-lg max-w-xl leading-relaxed">
+          Autonomous early-warning telemetry for firecracker manufacturing hubs, gun-powder blending vaults, and pyrotechnic drying chambers with milliseconds shockwave response.
+        </p>
+
+        <div class="flex flex-wrap items-center gap-4 pt-2">
+          <button onclick="scrollToSection('risk-engine')" class="bg-brand-500 hover:bg-brand-600 text-white font-semibold px-6 py-3.5 rounded-full text-sm flex items-center gap-2 transition shadow-lg shadow-brand-500/30">
+            <span>Explore Risk Engine</span>
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"/></svg>
+          </button>
+          <button onclick="triggerSoundTest()" class="bg-surface-card hover:bg-surface-cardHover text-gray-200 border border-surface-border font-medium px-6 py-3.5 rounded-full text-sm flex items-center gap-2 transition">
+            <svg class="w-4 h-4 text-brand-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd"/></svg>
+            <span>Acoustic Siren Check</span>
+          </button>
+        </div>
+
+        <!-- Trusted Badges -->
+        <div class="pt-8 border-t border-surface-border/60">
+          <p class="text-xs text-gray-500 uppercase tracking-widest font-semibold mb-4">Trusted Across Explosive Testing Facilities</p>
+          <div class="flex flex-wrap items-center gap-8 text-gray-500 font-bold text-sm tracking-wide">
+            <span class="hover:text-gray-300 transition flex items-center gap-1.5"><span class="text-brand-500">◆</span> PESO Certified</span>
+            <span class="hover:text-gray-300 transition flex items-center gap-1.5"><span class="text-brand-500">◆</span> ATEX Zone-0</span>
+            <span class="hover:text-gray-300 transition flex items-center gap-1.5"><span class="text-brand-500">◆</span> ISO 45001</span>
+            <span class="hover:text-gray-300 transition flex items-center gap-1.5"><span class="text-brand-500">◆</span> IECEx Standard</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right Graphic / 3D Torus Glow Card -->
+      <div class="lg:col-span-5 relative flex justify-center">
+        <div class="relative w-full max-w-md aspect-square rounded-3xl bg-gradient-to-b from-stone-900 to-black p-6 border border-stone-800 shadow-2xl flex flex-col justify-between overflow-hidden">
+          
+          <!-- Inner Orange Radial Wave Graphic -->
+          <div class="absolute -right-16 -top-16 w-80 h-80 rounded-full bg-brand-500/20 blur-3xl"></div>
+          
+          <div class="flex items-center justify-between z-10">
+            <div class="flex items-center gap-2">
+              <span class="w-3 h-3 rounded-full bg-red-500 animate-ping"></span>
+              <span class="text-xs font-mono font-semibold text-gray-300 uppercase">TELEMETRY RUNNING</span>
+            </div>
+            <span class="font-mono text-xs text-brand-400 bg-brand-500/10 px-2.5 py-1 rounded-full border border-brand-500/20">LIVE DATA STREAM</span>
+          </div>
+
+          <!-- Animated Ring Visualization -->
+          <div class="my-auto flex flex-col items-center justify-center relative py-6">
+            <div class="relative w-56 h-56 flex items-center justify-center">
+              <div class="absolute inset-0 rounded-full border-4 border-dashed border-brand-500/30 animate-[spin_20s_linear_infinite]"></div>
+              <div class="absolute inset-4 rounded-full border-2 border-brand-500/50 animate-[spin_12s_linear_infinite_reverse]"></div>
+              <div class="absolute inset-10 rounded-full bg-gradient-to-tr from-brand-600 to-amber-400 opacity-20 blur-xl"></div>
+              
+              <div class="text-center z-10">
+                <span id="heroRiskScore" class="text-6xl font-black text-white font-mono tracking-tighter">18.4</span>
+                <span class="text-xs text-brand-400 font-bold block uppercase tracking-widest mt-1">Blast Hazard Index</span>
+                <span id="heroRiskStatus" class="inline-block mt-2 px-3 py-0.5 rounded-full bg-green-500/20 text-green-400 text-[11px] font-bold border border-green-500/30">LOW RISK</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Footer of widget -->
+          <div class="z-10 grid grid-cols-3 gap-2 pt-4 border-t border-stone-800 text-center font-mono">
+            <div class="p-2 rounded-xl bg-surface/50 border border-surface-border">
+              <div class="text-[10px] text-gray-400">TEMP</div>
+              <div id="statTemp" class="text-sm font-bold text-white">28.4°C</div>
+            </div>
+            <div class="p-2 rounded-xl bg-surface/50 border border-surface-border">
+              <div class="text-[10px] text-gray-400">PRESSURE</div>
+              <div id="statPressure" class="text-sm font-bold text-white">101.3 kPa</div>
+            </div>
+            <div class="p-2 rounded-xl bg-surface/50 border border-surface-border">
+              <div class="text-[10px] text-gray-400">GAS PPM</div>
+              <div id="statGas" class="text-sm font-bold text-white">14.2 ppm</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- STATS RIBBON (Identical to 250+ / 120+ / 10+ / 98% bar in user reference image) -->
+  <section class="max-w-7xl mx-auto px-6 py-6">
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 bg-brand-500 text-white rounded-3xl p-6 sm:p-8 shadow-2xl shadow-brand-500/20">
+      <div>
+        <div class="text-3xl sm:text-4xl font-extrabold tracking-tight">30+</div>
+        <div class="text-xs sm:text-sm font-medium text-orange-100 mt-1">Multi-Spectrum Sensors</div>
+      </div>
+      <div>
+        <div class="text-3xl sm:text-4xl font-extrabold tracking-tight">5 Zones</div>
+        <div class="text-xs sm:text-sm font-medium text-orange-100 mt-1">Heavy Hazard Coverage</div>
+      </div>
+      <div>
+        <div class="text-3xl sm:text-4xl font-extrabold tracking-tight">&lt; 15ms</div>
+        <div class="text-xs sm:text-sm font-medium text-orange-100 mt-1">Blast Wave Response</div>
+      </div>
+      <div>
+        <div class="text-3xl sm:text-4xl font-extrabold tracking-tight">99.98%</div>
+        <div class="text-xs sm:text-sm font-medium text-orange-100 mt-1">Safe Operations Record</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4 CARDS SECTION: SMART SOLUTIONS (Matching the 4 cards in reference: 3 light cards + 1 dark card) -->
+  <section class="max-w-7xl mx-auto px-6 py-16">
+    <div class="flex flex-col md:flex-row md:items-end justify-between mb-12">
+      <div>
+        <div class="text-brand-500 text-xs font-bold uppercase tracking-widest mb-2 flex items-center gap-1.5">
+          <span class="w-2 h-2 rounded-full bg-brand-500"></span> WHAT WE MONITOR
+        </div>
+        <h2 class="text-3xl sm:text-4xl font-extrabold text-white">Engineered Safety Modules<br>For Explosive Units</h2>
+      </div>
+      <p class="text-gray-400 text-sm max-w-md mt-4 md:mt-0 leading-relaxed">
+        We synthesize thermal gradients, pressure velocity, atmospheric VOC gas concentrations, and acoustic signatures into one predictive explosion risk score.
+      </p>
+    </div>
+
+    <!-- The 4 Cards Grid -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      
+      <!-- Card 1 (Light card) -->
+      <div class="white-card p-7 flex flex-col justify-between">
+        <div>
+          <div class="w-10 h-10 rounded-full border border-orange-200 bg-orange-50 text-brand-600 flex items-center justify-center mb-6">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+          </div>
+          <h3 class="text-xl font-bold text-gray-900 mb-2">Thermal Spike Radar</h3>
+          <p class="text-gray-600 text-sm leading-relaxed mb-6">
+            Infrared pyrometer probes detect localized chemical decomposition before spontaneous combustion occurs.
+          </p>
+        </div>
+        <div class="pt-4 border-t border-gray-200 flex items-center justify-between text-sm font-bold text-gray-900">
+          <span>Threshold 45°C</span>
+          <span class="text-brand-600">→</span>
+        </div>
+      </div>
+
+      <!-- Card 2 (Light card) -->
+      <div class="white-card p-7 flex flex-col justify-between">
+        <div>
+          <div class="w-10 h-10 rounded-full border border-orange-200 bg-orange-50 text-brand-600 flex items-center justify-center mb-6">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+          </div>
+          <h3 class="text-xl font-bold text-gray-900 mb-2">Overpressure Transducers</h3>
+          <p class="text-gray-600 text-sm leading-relaxed mb-6">
+            Microsecond piezoresistive sensors detect deflagration pressure waves before structural casing rupture.
+          </p>
+        </div>
+        <div class="pt-4 border-t border-gray-200 flex items-center justify-between text-sm font-bold text-gray-900">
+          <span>Threshold 115 kPa</span>
+          <span class="text-brand-600">→</span>
+        </div>
+      </div>
+
+      <!-- Card 3 (Light card) -->
+      <div class="white-card p-7 flex flex-col justify-between">
+        <div>
+          <div class="w-10 h-10 rounded-full border border-orange-200 bg-orange-50 text-brand-600 flex items-center justify-center mb-6">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"/></svg>
+          </div>
+          <h3 class="text-xl font-bold text-gray-900 mb-2">Combustible Gas Sniffer</h3>
+          <p class="text-gray-600 text-sm leading-relaxed mb-6">
+            Electrochemical detection of sulfur dioxide, nitrate fumes, and combustible powders suspended in plant air.
+          </p>
+        </div>
+        <div class="pt-4 border-t border-gray-200 flex items-center justify-between text-sm font-bold text-gray-900">
+          <span>Threshold 100 ppm</span>
+          <span class="text-brand-600">→</span>
+        </div>
+      </div>
+
+      <!-- Card 4 (Dark Accent card - matching reference 4th card) -->
+      <div class="bg-stone-900 text-white rounded-3xl p-7 border border-stone-800 flex flex-col justify-between shadow-2xl relative overflow-hidden group">
+        <div class="absolute -right-6 -bottom-6 w-32 h-32 rounded-full bg-brand-500/10 group-hover:bg-brand-500/20 transition"></div>
+        <div>
+          <div class="w-10 h-10 rounded-full border border-stone-700 bg-stone-800 text-brand-400 flex items-center justify-center mb-6">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
+          </div>
+          <h3 class="text-xl font-bold text-white mb-2">Auto Deluge & Evac</h3>
+          <p class="text-gray-400 text-sm leading-relaxed mb-6">
+            Autonomous pneumatic trigger for nitrogen foam deluge systems, solenoid blast shutters, and evacuation alarms.
+          </p>
+        </div>
+        <div class="pt-4 border-t border-stone-800 flex items-center justify-between text-sm font-bold text-brand-400">
+          <span>Zero Human Delay</span>
+          <span>→</span>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- LIVE CONTROL CENTER & RISK ENGINE (Split Screen: Impact + Interactive Controls) -->
+  <section id="risk-engine" class="max-w-7xl mx-auto px-6 py-12">
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+      
+      <!-- Left: Comprehensive Risk Gauges & Factors -->
+      <div class="lg:col-span-7 space-y-6">
+        <div class="glass-card rounded-3xl p-8 border border-surface-border">
+          <div class="flex items-center justify-between mb-6">
+            <div>
+              <span class="text-brand-500 text-xs font-bold uppercase tracking-wider block">Real-Time Risk Calculation</span>
+              <h2 class="text-2xl font-extrabold text-white">Explosion Likelihood Engine</h2>
+            </div>
+            <span id="riskBadge" class="px-4 py-1.5 rounded-full font-bold text-xs uppercase bg-green-500/20 text-green-400 border border-green-500/30">
+              LOW RISK LEVEL
+            </span>
+          </div>
+
+          <!-- Risk Score Bar -->
+          <div class="mb-6">
+            <div class="flex justify-between text-sm font-mono mb-2">
+              <span class="text-gray-400">Hazard Index</span>
+              <span id="riskScoreText" class="text-white font-bold">18.4 / 100</span>
+            </div>
+            <div class="w-full h-3 bg-stone-900 rounded-full overflow-hidden p-0.5 border border-stone-800">
+              <div id="riskProgressBar" class="h-full bg-gradient-to-r from-green-500 via-amber-500 to-red-500 rounded-full transition-all duration-500" style="width: 18.4%;"></div>
+            </div>
+          </div>
+
+          <!-- Contributing Hazard Vectors -->
+          <div class="space-y-3 font-mono text-xs">
+            <div class="flex items-center justify-between p-3 rounded-xl bg-stone-900/60 border border-stone-800">
+              <div class="flex items-center gap-2">
+                <span class="w-2.5 h-2.5 rounded-full bg-orange-500"></span>
+                <span class="text-gray-300">Thermal Decomposition Weight (25%)</span>
+              </div>
+              <span id="factorThermal" class="text-white font-semibold">Normal (22%)</span>
+            </div>
+
+            <div class="flex items-center justify-between p-3 rounded-xl bg-stone-900/60 border border-stone-800">
+              <div class="flex items-center gap-2">
+                <span class="w-2.5 h-2.5 rounded-full bg-blue-500"></span>
+                <span class="text-gray-300">Pneumatic Overpressure Weight (20%)</span>
+              </div>
+              <span id="factorPressure" class="text-white font-semibold">Normal (15%)</span>
+            </div>
+
+            <div class="flex items-center justify-between p-3 rounded-xl bg-stone-900/60 border border-stone-800">
+              <div class="flex items-center gap-2">
+                <span class="w-2.5 h-2.5 rounded-full bg-purple-500"></span>
+                <span class="text-gray-300">Combustible Gas Density Weight (20%)</span>
+              </div>
+              <span id="factorGas" class="text-white font-semibold">Optimal (10%)</span>
+            </div>
+
+            <div class="flex items-center justify-between p-3 rounded-xl bg-stone-900/60 border border-stone-800">
+              <div class="flex items-center gap-2">
+                <span class="w-2.5 h-2.5 rounded-full bg-yellow-500"></span>
+                <span class="text-gray-300">High-G Shock & Vibration (15%)</span>
+              </div>
+              <span id="factorVibration" class="text-white font-semibold">Nominal (8%)</span>
+            </div>
+          </div>
+
+          <!-- Live Chart -->
+          <div class="mt-8 pt-6 border-t border-surface-border">
+            <div class="flex items-center justify-between mb-4">
+              <h3 class="text-sm font-bold text-gray-200">Continuous Risk & Sensor Dynamics</h3>
+              <span class="text-[11px] font-mono text-gray-400">Window: Last 25 ticks</span>
+            </div>
+            <div class="h-52 w-full">
+              <canvas id="riskChart"></canvas>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right: Plant Zones & Simulation Trigger Matrix -->
+      <div id="zones" class="lg:col-span-5 space-y-6">
+        <div class="glass-card rounded-3xl p-8 border border-surface-border">
+          <div class="flex items-center justify-between mb-6">
+            <div>
+              <span class="text-brand-500 text-xs font-bold uppercase tracking-wider block">Facility Topology</span>
+              <h2 class="text-2xl font-extrabold text-white">5 Monitored Zones</h2>
+            </div>
+            <button onclick="resetAllZones()" class="text-xs font-mono text-gray-400 hover:text-brand-400 underline transition">Reset All</button>
+          </div>
+
+          <p class="text-gray-400 text-xs mb-6 leading-relaxed">
+            Select any zone below to run an instant blast scenario simulation or inspect live sensor cluster metrics.
+          </p>
+
+          <!-- Zone Cards -->
+          <div class="space-y-3" id="zonesContainer">
+            <!-- Dynamically populated zones -->
+          </div>
+
+          <!-- Direct Blast Simulator Trigger Panel -->
+          <div class="mt-6 p-5 rounded-2xl bg-gradient-to-br from-red-950/40 via-stone-900 to-black border border-red-900/40">
+            <div class="flex items-center gap-3 mb-2">
+              <span class="w-3 h-3 rounded-full bg-red-500 animate-ping"></span>
+              <span class="text-sm font-bold text-red-300 uppercase tracking-wide">Drill & Stress Test Simulator</span>
+            </div>
+            <p class="text-xs text-gray-400 mb-4">
+              Trigger a realistic multi-sensor explosion sequence in any production bay to test response time, alarms, and deluge trip switches.
+            </p>
+            <div class="grid grid-cols-2 gap-3">
+              <button onclick="triggerZoneExplosion('Alpha')" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2.5 px-3 rounded-xl text-xs flex items-center justify-center gap-1.5 transition shadow-lg shadow-red-600/30">
+                <span>💥 Detonate Alpha Bay</span>
+              </button>
+              <button onclick="triggerZoneExplosion('Gamma')" class="bg-stone-800 hover:bg-stone-700 text-orange-300 font-bold py-2.5 px-3 rounded-xl text-xs flex items-center justify-center gap-1.5 border border-stone-700 transition">
+                <span>💥 Detonate Gamma Bay</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- SENSORS TELEMETRY MATRIX (Filterable, Interactive) -->
+  <section id="live-sensors" class="max-w-7xl mx-auto px-6 py-12">
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
+      <div>
+        <span class="text-brand-500 text-xs font-bold uppercase tracking-wider block">Edge Telemetry</span>
+        <h2 class="text-3xl font-extrabold text-white">Live Sensor Grid (30 Units)</h2>
+      </div>
+
+      <!-- Filters -->
+      <div class="flex flex-wrap items-center gap-2">
+        <button onclick="filterSensors('all')" class="filter-btn active px-3.5 py-1.5 rounded-full text-xs font-bold transition bg-brand-500 text-white" data-filter="all">All (30)</button>
+        <button onclick="filterSensors('temperature')" class="filter-btn px-3.5 py-1.5 rounded-full text-xs font-bold transition bg-stone-900 text-gray-400 hover:text-white border border-stone-800" data-filter="temperature">Temp</button>
+        <button onclick="filterSensors('pressure')" class="filter-btn px-3.5 py-1.5 rounded-full text-xs font-bold transition bg-stone-900 text-gray-400 hover:text-white border border-stone-800" data-filter="pressure">Pressure</button>
+        <button onclick="filterSensors('gas')" class="filter-btn px-3.5 py-1.5 rounded-full text-xs font-bold transition bg-stone-900 text-gray-400 hover:text-white border border-stone-800" data-filter="gas">Gas PPM</button>
+        <button onclick="filterSensors('sound')" class="filter-btn px-3.5 py-1.5 rounded-full text-xs font-bold transition bg-stone-900 text-gray-400 hover:text-white border border-stone-800" data-filter="sound">Acoustic</button>
+        <button onclick="filterSensors('vibration')" class="filter-btn px-3.5 py-1.5 rounded-full text-xs font-bold transition bg-stone-900 text-gray-400 hover:text-white border border-stone-800" data-filter="vibration">Vibration</button>
+      </div>
+    </div>
+
+    <!-- Sensor Cards Container -->
+    <div id="sensorGrid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+      <!-- Populated by JS -->
+    </div>
+  </section>
+
+  <!-- LIVE ALERTS STREAM & LOGS -->
+  <section id="alerts" class="max-w-7xl mx-auto px-6 py-12 mb-16">
+    <div class="glass-card rounded-3xl p-8 border border-surface-border">
+      <div class="flex items-center justify-between mb-6">
+        <div>
+          <span class="text-brand-500 text-xs font-bold uppercase tracking-wider block">Security Event Log</span>
+          <h2 class="text-2xl font-extrabold text-white">Live Dispatched Alerts</h2>
+        </div>
+        <div class="flex items-center gap-3">
+          <button onclick="clearAllAlerts()" class="text-xs font-semibold text-gray-400 hover:text-white px-3 py-1.5 rounded-lg bg-surface-card border border-surface-border transition">
+            Clear Stream
+          </button>
+          <button onclick="downloadIncidentReport()" class="text-xs font-semibold text-brand-400 hover:text-brand-300 px-3 py-1.5 rounded-lg bg-brand-500/10 border border-brand-500/30 transition">
+            Export Audit Log
+          </button>
+        </div>
+      </div>
+
+      <div id="alertsContainer" class="space-y-2.5 max-h-80 overflow-y-auto custom-scroll pr-2">
+        <!-- Live Alerts inserted here -->
+      </div>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer class="border-t border-stone-900 py-12 text-center text-xs text-gray-600">
+    <div class="max-w-7xl mx-auto px-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+      <div class="flex items-center gap-2">
+        <span class="w-2 h-2 rounded-full bg-green-500"></span>
+        <span>SENTINEL Core Engine v1.0.4 • Ready for Vercel Deployment</span>
+      </div>
+      <div>Designed for Precision Firecracker Explosion Risk Prevention</div>
+    </div>
+  </footer>
+
+  <!-- SCRIPT ENGINE -->
+  <script>
+    // SIMULATION STATE & DATA
+    const ZONES = ['Alpha', 'Beta', 'Gamma', 'Delta', 'Epsilon'];
+    const SENSOR_TYPES = [
+      { type: 'temperature', name: 'Temp Sensor', unit: '°C', min: 18, max: 42, crit: 65, color: '#f97316' },
+      { type: 'pressure', name: 'Pressure Sensor', unit: 'kPa', min: 98, max: 108, crit: 145, color: '#38bdf8' },
+      { type: 'sound', name: 'Acoustic Mic', unit: 'dB', min: 35, max: 80, crit: 130, color: '#facc15' },
+      { type: 'vibration', name: 'Tri-Axial Vib', unit: 'mm/s', min: 0.5, max: 8.5, crit: 32, color: '#4ade80' },
+      { type: 'gas', name: 'VOC Gas Probe', unit: 'ppm', min: 5, max: 50, crit: 250, color: '#c084fc' },
+      { type: 'humidity', name: 'Humidity Hydrometer', unit: '%', min: 40, max: 65, crit: 90, color: '#2dd4bf' }
+    ];
+
+    let sensors = [];
+    let alerts = [];
+    let currentFilter = 'all';
+    let riskChartInstance = null;
+    let chartHistory = [];
+    let isEmergency = false;
+
+    // AUDIO SIREN SYNTHESIZER (Web Audio API - No external file needed!)
+    let audioCtx = null;
+    function playSirenTone(freq = 880, duration = 0.4) {
+      try {
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(freq * 1.5, audioCtx.currentTime + duration);
+        gain.gain.setValueAtTime(0.08, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + duration);
+      } catch(e) {
+        console.warn('Audio synthesis disabled/unsupported:', e);
+      }
+    }
+
+    function triggerSoundTest() {
+      playSirenTone(660, 0.5);
+      setTimeout(() => playSirenTone(880, 0.5), 300);
+      addAlert('INFO', 'System', 'Acoustic siren diagnostic check executed successfully.');
+    }
+
+    // INITIALIZE 30 SENSORS
+    function initSensors() {
+      sensors = [];
+      let idCounter = 100;
+      ZONES.forEach(zone => {
+        SENSOR_TYPES.forEach(st => {
+          idCounter++;
+          const val = +(st.min + Math.random() * (st.max - st.min)).toFixed(1);
+          sensors.push({
+            id: `SEN-${idCounter}`,
+            zone: zone,
+            type: st.type,
+            name: `${st.name} ${zone}-${idCounter % 10}`,
+            value: val,
+            unit: st.unit,
+            min: st.min,
+            max: st.max,
+            crit: st.crit,
+            status: 'normal', // normal, warning, critical
+            battery: Math.floor(85 + Math.random() * 15)
+          });
+        });
+      });
+    }
+
+    // RENDER SENSORS
+    function renderSensors() {
+      const grid = document.getElementById('sensorGrid');
+      const filtered = currentFilter === 'all' ? sensors : sensors.filter(s => s.type === currentFilter);
+
+      grid.innerHTML = filtered.map(s => {
+        const isCrit = s.status === 'critical';
+        const isWarn = s.status === 'warning';
+        const pct = Math.min(100, Math.max(0, ((s.value - s.min) / (s.crit - s.min)) * 100));
+
+        let cardBg = 'bg-stone-900/80 border-stone-800';
+        let valColor = 'text-white';
+        let barColor = 'bg-green-500';
+
+        if (isCrit) {
+          cardBg = 'bg-red-950/40 border-red-600/80 shadow-lg shadow-red-500/20';
+          valColor = 'text-red-400 font-extrabold';
+          barColor = 'bg-red-500';
+        } else if (isWarn) {
+          cardBg = 'bg-amber-950/30 border-amber-600/60';
+          valColor = 'text-amber-400 font-bold';
+          barColor = 'bg-amber-500';
+        }
+
+        return `
+          <div class="rounded-2xl p-4 border ${cardBg} flex flex-col justify-between transition-all duration-300 hover:scale-[1.02]">
+            <div>
+              <div class="flex items-center justify-between text-[11px] font-mono text-gray-400 mb-2">
+                <span>Zone ${s.zone}</span>
+                <span class="flex items-center gap-1 font-bold ${isCrit ? 'text-red-400' : isWarn ? 'text-amber-400' : 'text-green-400'}">
+                  <span class="w-1.5 h-1.5 rounded-full ${isCrit ? 'bg-red-500 animate-ping' : isWarn ? 'bg-amber-500' : 'bg-green-500'}"></span>
+                  ${s.status.toUpperCase()}
+                </span>
+              </div>
+              <h4 class="text-xs font-semibold text-gray-200 truncate mb-1">${s.name}</h4>
+              <div class="text-2xl font-mono ${valColor} tracking-tight">
+                ${s.value} <span class="text-xs font-normal text-gray-400">${s.unit}</span>
+              </div>
+            </div>
+
+            <div class="mt-3 pt-2 border-t border-stone-800">
+              <div class="w-full bg-stone-800 h-1.5 rounded-full overflow-hidden">
+                <div class="${barColor} h-full transition-all duration-300" style="width: ${pct}%"></div>
+              </div>
+              <div class="flex justify-between items-center text-[10px] text-gray-500 font-mono mt-1">
+                <span>Safe: ${s.max}${s.unit}</span>
+                <span>Bat: ${s.battery}%</span>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // RENDER ZONES
+    function renderZones() {
+      const container = document.getElementById('zonesContainer');
+      container.innerHTML = ZONES.map(zone => {
+        const zoneSensors = sensors.filter(s => s.zone === zone);
+        const hasCritical = zoneSensors.some(s => s.status === 'critical');
+        const hasWarning = zoneSensors.some(s => s.status === 'warning');
+
+        let statusText = 'Normal';
+        let statusBadge = 'bg-green-500/10 text-green-400 border-green-500/20';
+        let zoneBorder = 'border-stone-800';
+
+        if (hasCritical) {
+          statusText = 'CRITICAL SURGE';
+          statusBadge = 'bg-red-500/20 text-red-400 border-red-500/30 badge-pulse';
+          zoneBorder = 'border-red-600/60 shadow-lg shadow-red-600/20';
+        } else if (hasWarning) {
+          statusText = 'ELEVATED RISK';
+          statusBadge = 'bg-amber-500/20 text-amber-400 border-amber-500/30';
+          zoneBorder = 'border-amber-600/40';
+        }
+
+        return `
+          <div class="p-3.5 rounded-2xl bg-stone-900/60 border ${zoneBorder} flex items-center justify-between transition-all">
+            <div class="flex items-center gap-3">
+              <div class="w-8 h-8 rounded-xl bg-stone-800 flex items-center justify-center font-bold text-white text-xs font-mono">
+                ${zone[0]}
+              </div>
+              <div>
+                <div class="text-sm font-bold text-white">Zone ${zone} (Pyrotechnic Unit)</div>
+                <div class="text-[11px] text-gray-400 font-mono">${zoneSensors.length} active channels • Nominal telemetry</div>
+              </div>
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="px-2.5 py-1 rounded-full text-[10px] font-bold font-mono border ${statusBadge}">
+                ${statusText}
+              </span>
+              <button onclick="triggerZoneExplosion('${zone}')" title="Test explosion scenario in Zone ${zone}" class="p-1.5 rounded-lg bg-stone-800 hover:bg-red-600 hover:text-white text-gray-400 transition text-xs">
+                💥
+              </button>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // CALCULATE RISK ENGINE SCORE
+    function calculateRisk() {
+      let totalRisk = 0;
+      let criticalCount = 0;
+
+      sensors.forEach(s => {
+        let sensorScore = 0;
+        if (s.value > s.crit) {
+          sensorScore = 100;
+          criticalCount++;
+        } else if (s.value > s.max) {
+          sensorScore = 50 + ((s.value - s.max) / (s.crit - s.max)) * 50;
+        } else {
+          sensorScore = (s.value / s.max) * 30;
+        }
+        totalRisk += sensorScore;
+      });
+
+      let avgRisk = totalRisk / sensors.length;
+      if (criticalCount > 0) {
+        avgRisk = Math.min(100, avgRisk * 1.6 + criticalCount * 12);
+      }
+
+      avgRisk = +avgRisk.toFixed(1);
+
+      // Update UI displays
+      document.getElementById('heroRiskScore').innerText = avgRisk;
+      document.getElementById('riskScoreText').innerText = `${avgRisk} / 100`;
+      document.getElementById('riskProgressBar').style.width = `${avgRisk}%`;
+
+      const heroBadge = document.getElementById('heroRiskStatus');
+      const riskBadge = document.getElementById('riskBadge');
+      const alarmBanner = document.getElementById('alarmBanner');
+
+      if (avgRisk > 65) {
+        heroBadge.innerText = 'CRITICAL HAZARD';
+        heroBadge.className = 'inline-block mt-2 px-3 py-0.5 rounded-full bg-red-500/20 text-red-400 text-[11px] font-bold border border-red-500/30';
+        riskBadge.innerText = 'CRITICAL BLAST RISK';
+        riskBadge.className = 'px-4 py-1.5 rounded-full font-bold text-xs uppercase bg-red-500/20 text-red-400 border border-red-500/30 badge-pulse';
+        alarmBanner.classList.remove('hidden');
+        if (!isEmergency) {
+          isEmergency = true;
+          playSirenTone(900, 0.8);
+        }
+      } else if (avgRisk > 35) {
+        heroBadge.innerText = 'ELEVATED WARNING';
+        heroBadge.className = 'inline-block mt-2 px-3 py-0.5 rounded-full bg-amber-500/20 text-amber-400 text-[11px] font-bold border border-amber-500/30';
+        riskBadge.innerText = 'MODERATE CAUTION';
+        riskBadge.className = 'px-4 py-1.5 rounded-full font-bold text-xs uppercase bg-amber-500/20 text-amber-400 border border-amber-500/30';
+        alarmBanner.classList.add('hidden');
+        isEmergency = false;
+      } else {
+        heroBadge.innerText = 'LOW RISK';
+        heroBadge.className = 'inline-block mt-2 px-3 py-0.5 rounded-full bg-green-500/20 text-green-400 text-[11px] font-bold border border-green-500/30';
+        riskBadge.innerText = 'LOW RISK LEVEL';
+        riskBadge.className = 'px-4 py-1.5 rounded-full font-bold text-xs uppercase bg-green-500/20 text-green-400 border border-green-500/30';
+        alarmBanner.classList.add('hidden');
+        isEmergency = false;
+      }
+
+      // Quick hero stats update
+      const tempSensors = sensors.filter(s => s.type === 'temperature');
+      const pressSensors = sensors.filter(s => s.type === 'pressure');
+      const gasSensors = sensors.filter(s => s.type === 'gas');
+
+      document.getElementById('statTemp').innerText = `${(tempSensors.reduce((a, b) => a + b.value, 0) / tempSensors.length).toFixed(1)}°C`;
+      document.getElementById('statPressure').innerText = `${(pressSensors.reduce((a, b) => a + b.value, 0) / pressSensors.length).toFixed(1)} kPa`;
+      document.getElementById('statGas').innerText = `${(gasSensors.reduce((a, b) => a + b.value, 0) / gasSensors.length).toFixed(1)} ppm`;
+
+      // Update Chart Data
+      chartHistory.push(avgRisk);
+      if (chartHistory.length > 25) chartHistory.shift();
+      if (riskChartInstance) {
+        riskChartInstance.data.labels = chartHistory.map((_, i) => `${i}s`);
+        riskChartInstance.data.datasets[0].data = chartHistory;
+        riskChartInstance.update('none');
+      }
+
+      return avgRisk;
+    }
+
+    // SIMULATION TICK
+    function simulateTick() {
+      sensors.forEach(s => {
+        // Natural small drift
+        const delta = (Math.random() - 0.49) * (s.max - s.min) * 0.04;
+        s.value = +(s.value + delta).toFixed(1);
+
+        // Clamping to physical range
+        s.value = Math.max(s.min * 0.8, s.value);
+
+        // Status update
+        if (s.value >= s.crit) {
+          if (s.status !== 'critical') {
+            s.status = 'critical';
+            addAlert('CRITICAL', `Zone ${s.zone}`, `${s.name} crossed lethal explosion threshold: ${s.value}${s.unit}`);
+            playSirenTone(1050, 0.4);
+          }
+        } else if (s.value >= s.max) {
+          if (s.status !== 'warning') {
+            s.status = 'warning';
+            addAlert('WARNING', `Zone ${s.zone}`, `${s.name} approaching hazardous boundary: ${s.value}${s.unit}`);
+          }
+        } else {
+          s.status = 'normal';
+        }
+      });
+
+      renderSensors();
+      renderZones();
+      calculateRisk();
+    }
+
+    // EXPLOSION TRIGGER SCENARIO
+    function triggerZoneExplosion(zone) {
+      playSirenTone(500, 1.2);
+      addAlert('CRITICAL', `Zone ${zone}`, `💥 EXPLOSION DETECTED! Rapid chemical deflagration shockwave registered.`);
+
+      sensors.forEach(s => {
+        if (s.zone === zone) {
+          if (s.type === 'temperature') s.value = +(s.crit * (1.2 + Math.random() * 0.3)).toFixed(1);
+          if (s.type === 'pressure') s.value = +(s.crit * (1.4 + Math.random() * 0.4)).toFixed(1);
+          if (s.type === 'sound') s.value = +(s.crit * (1.1 + Math.random() * 0.2)).toFixed(1);
+          if (s.type === 'vibration') s.value = +(s.crit * (1.3 + Math.random() * 0.3)).toFixed(1);
+          if (s.type === 'gas') s.value = +(s.crit * (1.5 + Math.random() * 0.5)).toFixed(1);
+          s.status = 'critical';
+        }
+      });
+
+      renderSensors();
+      renderZones();
+      calculateRisk();
+    }
+
+    function triggerExplosionModal() {
+      const z = ZONES[Math.floor(Math.random() * ZONES.length)];
+      triggerZoneExplosion(z);
+    }
+
+    function resetAllZones() {
+      initSensors();
+      renderSensors();
+      renderZones();
+      calculateRisk();
+      addAlert('INFO', 'System', 'All telemetry channels recalibrated to nominal baseline.');
+    }
+
+    // ALERTS MANAGEMENT
+    function addAlert(severity, source, message) {
+      const time = new Date().toLocaleTimeString();
+      alerts.unshift({ severity, source, message, time });
+      if (alerts.length > 50) alerts.pop();
+      renderAlerts();
+    }
+
+    function renderAlerts() {
+      const container = document.getElementById('alertsContainer');
+      if (alerts.length === 0) {
+        container.innerHTML = '<div class="text-xs text-gray-500 font-mono py-4 text-center">No active alerts recorded. All telemetry normal.</div>';
+        return;
+      }
+
+      container.innerHTML = alerts.map(a => {
+        let badge = 'bg-blue-500/10 text-blue-400 border-blue-500/20';
+        if (a.severity === 'CRITICAL') badge = 'bg-red-500/20 text-red-400 border-red-500/30';
+        if (a.severity === 'WARNING') badge = 'bg-amber-500/20 text-amber-400 border-amber-500/30';
+
+        return `
+          <div class="p-3 rounded-xl bg-stone-900/80 border border-stone-800 flex items-start justify-between gap-3 font-mono text-xs">
+            <div class="flex items-start gap-2.5">
+              <span class="px-2 py-0.5 rounded text-[10px] font-bold border ${badge}">${a.severity}</span>
+              <div>
+                <span class="font-bold text-gray-200">[${a.source}]</span>
+                <span class="text-gray-400 ml-1">${a.message}</span>
+              </div>
+            </div>
+            <span class="text-[10px] text-gray-500 whitespace-nowrap">${a.time}</span>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function clearAllAlerts() {
+      alerts = [];
+      renderAlerts();
+    }
+
+    function dismissAlarm() {
+      document.getElementById('alarmBanner').classList.add('hidden');
+    }
+
+    function filterSensors(type) {
+      currentFilter = type;
+      document.querySelectorAll('.filter-btn').forEach(b => {
+        if (b.dataset.filter === type) {
+          b.className = 'filter-btn active px-3.5 py-1.5 rounded-full text-xs font-bold transition bg-brand-500 text-white';
+        } else {
+          b.className = 'filter-btn px-3.5 py-1.5 rounded-full text-xs font-bold transition bg-stone-900 text-gray-400 hover:text-white border border-stone-800';
+        }
+      });
+      renderSensors();
+    }
+
+    function scrollToSection(id) {
+      document.getElementById(id).scrollIntoView({ behavior: 'smooth' });
+    }
+
+    function downloadIncidentReport() {
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify({ timestamp: new Date(), alerts, sensors }, null, 2));
+      const downloadAnchor = document.createElement('a');
+      downloadAnchor.setAttribute("href", dataStr);
+      downloadAnchor.setAttribute("download", `sentinel-safety-audit-${Date.now()}.json`);
+      document.body.appendChild(downloadAnchor);
+      downloadAnchor.click();
+      downloadAnchor.remove();
+    }
+
+    // INIT CHART.JS
+    function initChart() {
+      const ctx = document.getElementById('riskChart').getContext('2d');
+      chartHistory = [15, 16, 17, 16, 18, 19, 18, 17, 18, 19, 18, 17, 18, 19, 18.4];
+      riskChartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: chartHistory.map((_, i) => `${i}s`),
+          datasets: [{
+            label: 'Blast Hazard Index',
+            data: chartHistory,
+            borderColor: '#f97316',
+            backgroundColor: 'rgba(249, 115, 22, 0.1)',
+            fill: true,
+            tension: 0.35,
+            borderWidth: 2,
+            pointRadius: 0
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            x: { grid: { color: '#222' }, ticks: { color: '#666', font: { size: 10, family: 'JetBrains Mono' } } },
+            y: { min: 0, max: 100, grid: { color: '#222' }, ticks: { color: '#666', font: { size: 10, family: 'JetBrains Mono' } } }
+          }
+        }
+      });
+    }
+
+    // BOOTSTRAP
+    window.onload = function() {
+      initSensors();
+      initChart();
+      renderSensors();
+      renderZones();
+      calculateRisk();
+      addAlert('INFO', 'System', 'Multi-channel pyrotechnic monitoring initialized.');
+      setInterval(simulateTick, 1200);
+    };
+  </script>
+</body>
+</html>
